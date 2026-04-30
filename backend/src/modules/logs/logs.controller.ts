@@ -1,6 +1,6 @@
 import { Request, Response } from "express";
 import * as logService from "./logs.service.js";
-import { createLogSchema } from "./logs.validation.js";
+import { createLogSchema, logIdParamSchema, updateLogSchema } from "./logs.validation.js";
 
 function normalizeId(id: string | string[]): string {
     return Array.isArray(id) ? id[0] : id;
@@ -20,14 +20,18 @@ export async function create(req: Request, res: Response) {
             });
         }
 
-        const log = await logService.createLog(req.body);
+        const log = await logService.createLog(validation.data);
 
         res.status(201).json({
             message: "Log created",
             data: log,
         });
     } catch (error) {
-        res.status(400).json({ message: "Failed to create log" });
+        console.error("Create log error:", error);
+
+        res.status(500).json({
+            message: "Failed to create log",
+        });
     }
 }
 
@@ -39,12 +43,28 @@ export async function getAll(req: Request, res: Response) {
             data: logs,
         });
     } catch (error) {
-        res.status(500).json({ message: "Failed to fetch logs" });
+        console.error("Get logs error:", error);
+
+        res.status(500).json({
+            message: "Failed to fetch logs",
+        });
     }
 }
 
 export async function getById(req: Request, res: Response) {
     try {
+        const validation = logIdParamSchema.safeParse(req.params)
+
+        if (!validation.success) {
+            return res.status(400).json({
+                message: "Validation failed",
+                errors: validation.error.issues.map((err) => ({
+                    field: err.path[0],
+                    message: err.message,
+                })),
+            });
+        }
+
         const id = normalizeId(req.params.id);
         const log = await logService.getLogById(id);
 
@@ -52,33 +72,82 @@ export async function getById(req: Request, res: Response) {
             return res.status(404).json({ message: "Log not found" });
         }
 
-        res.json({ data: log });
+        res.status(200).json({ data: log });
     } catch (error) {
-        res.status(500).json({ message: "Error fetching log" });
+        console.error("Get log by ID error:", error);
+
+        res.status(500).json({
+            message: "Error fetching log",
+        });
     }
 }
 
 export async function update(req: Request, res: Response) {
     try {
-        const id = normalizeId(req.params.id);
-        const log = await logService.updateLog(id, req.body);
 
-        res.json({
+        const idValidation = logIdParamSchema.safeParse(req.params);
+        const bodyValidation = updateLogSchema.safeParse(req.body);
+
+        if (!idValidation.success) {
+            return res.status(400).json({
+                message: "Validation failed",
+                errors: idValidation.error.issues.map((err) => ({
+                    field: err.path[0],
+                    message: err.message,
+                })),
+            });
+        }
+
+        if (!bodyValidation.success) {
+            return res.status(400).json({
+                message: "Validation failed",
+                errors: bodyValidation.error.issues.map((err) => ({
+                    field: err.path[0],
+                    message: err.message,
+                })),
+            });
+        }
+
+        const id = idValidation.data.id;
+        const log = await logService.updateLog(id, bodyValidation.data);
+
+        res.status(200).json({
             message: "Log updated",
             data: log,
         });
     } catch (error) {
-        res.status(400).json({ message: "Update failed" });
+        console.error("Update log error:", error);
+
+        res.status(500).json({
+            message: "Failed to update log",
+        });
     }
 }
 
 export async function remove(req: Request, res: Response) {
     try {
-        const id = normalizeId(req.params.id);
+
+        const validation = logIdParamSchema.safeParse(req.params);
+
+        if (!validation.success) {
+            return res.status(400).json({
+                message: "Validation failed",
+                errors: validation.error.issues.map((err) => ({
+                    field: err.path[0],
+                    message: err.message,
+                })),
+            });
+        }
+
+        const id = validation.data.id;
         await logService.deleteLog(id);
 
-        res.json({ message: "Log deleted" });
+        res.status(204).send();
     } catch (error) {
-        res.status(400).json({ message: "Delete failed" });
+        console.error("Delete log error:", error);
+
+        res.status(500).json({
+            message: "Failed to delete log",
+        });
     }
 }
