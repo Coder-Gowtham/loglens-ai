@@ -1,5 +1,6 @@
 import { Request, Response } from "express";
 import * as logService from "./logs.service.js";
+import { createLogSchema } from "./logs.validation.js";
 
 function normalizeId(id: string | string[]): string {
     return Array.isArray(id) ? id[0] : id;
@@ -7,6 +8,18 @@ function normalizeId(id: string | string[]): string {
 
 export async function create(req: Request, res: Response) {
     try {
+        const validation = createLogSchema.safeParse(req.body);
+
+        if (!validation.success) {
+            return res.status(400).json({
+                message: "Validation failed",
+                errors: validation.error.issues.map((err) => ({
+                    field: err.path[0],
+                    message: err.message,
+                })),
+            });
+        }
+
         const log = await logService.createLog(req.body);
 
         res.status(201).json({
@@ -30,7 +43,7 @@ export async function getAll(req: Request, res: Response) {
     }
 }
 
-export async function   getById(req: Request, res: Response) {
+export async function getById(req: Request, res: Response) {
     try {
         const id = normalizeId(req.params.id);
         const log = await logService.getLogById(id);
@@ -54,7 +67,7 @@ export async function update(req: Request, res: Response) {
             message: "Log updated",
             data: log,
         });
-    } catch (error){
+    } catch (error) {
         res.status(400).json({ message: "Update failed" });
     }
 }
