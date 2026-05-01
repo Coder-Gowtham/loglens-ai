@@ -5,6 +5,8 @@ import morgan from "morgan";
 import healthRoutes from "./modules/health/health.routes.js";
 import authRoutes from "./modules/auth/auth.routes.js";
 import logsRoutes from "./modules/logs/logs.routes.js";
+import { errorMiddleware } from "./middlewares/error.middleware.js";
+
 
 const app = express();
 
@@ -23,5 +25,8 @@ app.use((_req, res) => {
     message: "Route not found",
   });
 });
+
+app.use(errorMiddleware);
+
 
 export default app;
