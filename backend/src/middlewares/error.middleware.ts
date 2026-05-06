@@ -1,14 +1,21 @@
 import { Request, Response, NextFunction } from "express";
+import { ApiError } from "../utils/ApiError.js";
 
 export function errorMiddleware(
-  error: any,
-  req: Request,
+  error: Error,
+  _req: Request,
   res: Response,
-  next: NextFunction
+  _next: NextFunction
 ) {
   console.error("Global error:", error);
 
-  res.status(500).json({
-    message: error.message || "Internal Server Error",
+  if (error instanceof ApiError) {
+    return res.status(error.statusCode).json({
+      message: error.message,
+    });
+  }
+
+  return res.status(500).json({
+    message: "Internal Server Error",
   });
 }
