@@ -6,6 +6,7 @@ import healthRoutes from "./modules/health/health.routes.js";
 import authRoutes from "./modules/auth/auth.routes.js";
 import logsRoutes from "./modules/logs/logs.routes.js";
 import { errorMiddleware } from "./middlewares/error.middleware.js";
+import { globalRateLimit } from "./middlewares/rateLimit.middleware.js";
 
 
 const app = express();
@@ -14,6 +15,8 @@ app.use(helmet());
 app.use(cors());
 app.use(express.json({ limit: "1mb" }));
 app.use(morgan("dev"));
+
+app.use(globalRateLimit);
 
 app.use("/health", healthRoutes);
 
