@@ -1,17 +1,23 @@
 import prisma from "../../config/db.js";
 import redis from "../../config/redis.js";
 import { cacheKeys } from "../../utils/cacheKeys.js";
+import { addLogAnalysisJob } from "../queue/logAnalysis.queue.js";
+
 
 export async function createLog(data: any) {
     const log = await prisma.log.create({
-        data,
+        data: {
+            ...data,
+            status: "pending",
+        },
     });
+
+    await addLogAnalysisJob(log.id); //Log created, processing queued
 
     await redis.del(cacheKeys.logsAll);
 
     return log;
 }
-
 export async function getLogs() {
     const cachedLogs = await redis.get(cacheKeys.logsAll);
 

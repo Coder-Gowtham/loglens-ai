@@ -1,4 +1,7 @@
 import { Job, Worker } from "bullmq";
+import prisma from "../../config/db.js";
+import redis from "../../config/redis.js";
+import { cacheKeys } from "../../utils/cacheKeys.js";
 
 type LogAnalysisJobData = {
   logId: string;
@@ -20,18 +23,41 @@ async function processLogAnalysisJob(
 ): Promise<LogAnalysisResult> {
   const { logId } = job.data;
 
-  console.log(`[Worker] Processing job ${job.id}`);
-  console.log(`[Worker] Job name: ${job.name}`);
+  console.log(`[Worker] Processing log analysis job ${job.id}`);
   console.log(`[Worker] Log ID: ${logId}`);
 
   if (!logId) {
     throw new Error("logId is required");
   }
 
-  // Fake processing for now
+  const log = await prisma.log.findUnique({
+    where: { id: logId },
+  });
+
+  if (!log) {
+    throw new Error(`Log not found: ${logId}`);
+  }
+
+  await prisma.log.update({
+    where: { id: logId },
+    data: {
+      status: "processing",
+    },
+  });
+
+  // Fake analysis for now. AI will come later.
   await new Promise((resolve) => setTimeout(resolve, 2000));
 
-  console.log(`[Worker] Finished job ${job.id}`);
+  await prisma.log.update({
+    where: { id: logId },
+    data: {
+      status: "completed",
+    },
+  });
+
+  await redis.del(cacheKeys.logsAll);
+
+  console.log(`[Worker] Completed log analysis for ${logId}`);
 
   return {
     success: true,
@@ -58,9 +84,22 @@ logAnalysisWorker.on("completed", (job, result) => {
   console.log("[Worker] Result:", result);
 });
 
-logAnalysisWorker.on("failed", (job, err) => {
+logAnalysisWorker.on("failed", async (job, err) => {
   console.error(`[Worker] Job failed: ${job?.id}`);
   console.error("[Worker] Error:", err.message);
+
+  const logId = job?.data?.logId;
+
+  if (logId) {
+    await prisma.log.update({
+      where: { id: logId },
+      data: {
+        status: "failed",
+      },
+    });
+
+    await redis.del(cacheKeys.logsAll);
+  }
 });
 
 logAnalysisWorker.on("error", (err) => {
