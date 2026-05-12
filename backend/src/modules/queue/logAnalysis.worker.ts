@@ -2,6 +2,7 @@ import { Job, Worker } from "bullmq";
 import prisma from "../../config/db.js";
 import redis from "../../config/redis.js";
 import { cacheKeys } from "../../utils/cacheKeys.js";
+import * as logService from "../logs/logs.service.js";
 
 type LogAnalysisJobData = {
   logId: string;
@@ -38,22 +39,12 @@ async function processLogAnalysisJob(
     throw new Error(`Log not found: ${logId}`);
   }
 
-  await prisma.log.update({
-    where: { id: logId },
-    data: {
-      status: "processing",
-    },
-  });
+  await logService.markLogProcessing(logId);
 
   // Fake analysis for now. AI will come later.
   await new Promise((resolve) => setTimeout(resolve, 2000));
 
-  await prisma.log.update({
-    where: { id: logId },
-    data: {
-      status: "completed",
-    },
-  });
+  await logService.markLogCompleted(logId);
 
   await redis.del(cacheKeys.logsAll);
 
@@ -91,13 +82,7 @@ logAnalysisWorker.on("failed", async (job, err) => {
   const logId = job?.data?.logId;
 
   if (logId) {
-    await prisma.log.update({
-      where: { id: logId },
-      data: {
-        status: "failed",
-      },
-    });
-
+    await logService.markLogFailed(logId, err.message);
     await redis.del(cacheKeys.logsAll);
   }
 });

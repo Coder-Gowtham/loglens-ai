@@ -71,3 +71,35 @@ export async function deleteLog(id: string) {
 
     return log;
 }
+
+export async function markLogProcessing(id: string) {
+    return prisma.log.update({
+        where: { id },
+        data: {
+            status: "processing",
+            errorMessage: null,
+        },
+    });
+}
+
+export async function markLogCompleted(id: string) {
+    return prisma.log.update({
+        where: { id },
+        data: {
+            status: "completed",
+            processedAt: new Date(),
+            errorMessage: null,
+        },
+    });
+}
+
+export async function markLogFailed(id: string, errorMessage: string) {
+    return prisma.log.update({
+        where: { id },
+        data: {
+            status: "failed",
+            errorMessage,
+            processedAt: new Date(),
+        },
+    });
+}
