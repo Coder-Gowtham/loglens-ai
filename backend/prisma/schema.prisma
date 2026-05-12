@@ -30,17 +30,33 @@ model Project {
 }
 
 model Log {
-  id          String    @id @default(uuid())
-  projectId   String
-  level       String
-  message     String
-  source      String?
-  metadata    Json?
-  status      String    @default("pending")
+  id           String        @id @default(uuid())
+  projectId    String
+  level        String
+  message      String
+  source       String?
+  metadata     Json?
+  status       String        @default("pending")
   errorMessage String?
-  processedAt DateTime?
-  createdAt   DateTime  @default(now())
-  updatedAt   DateTime  @updatedAt
+  processedAt  DateTime?
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt @default(now())
 
-  project Project @relation(fields: [projectId], references: [id])
+  project      Project       @relation(fields: [projectId], references: [id])
+  analysis     LogAnalysis?
+}
+
+model LogAnalysis {
+  id              String   @id @default(uuid())
+  logId           String   @unique
+  severity        String
+  category        String
+  summary         String
+  possibleCause   String
+  suggestedFix    String
+  confidenceScore Float
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt @default(now())
+
+  log Log @relation(fields: [logId], references: [id])
 }

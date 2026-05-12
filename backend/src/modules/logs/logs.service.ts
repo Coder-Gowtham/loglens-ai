@@ -30,17 +30,12 @@ export async function getLogs() {
 
     const logs = await prisma.log.findMany({
         orderBy: { createdAt: "desc" },
+        include: {
+            analysis: true,
+        },
     });
 
-    await redis.set(cacheKeys.logsAll, JSON.stringify(logs), "EX", 60);
-    /*
-    await redis.set(
-                "logs:all",
-                "[JSON DATA]",
-                "EX",
-                60
-                    ); 
-        Store logs in Redis under key "logs:all" for 60 seconds*/
+    await redis.set(cacheKeys.logsAll, JSON.stringify(logs), "EX", 60); /*Store logs in Redis under key "logs:all" for 60 seconds*/
 
     return logs;
 }
@@ -48,6 +43,9 @@ export async function getLogs() {
 export async function getLogById(id: string) {
     return await prisma.log.findUnique({
         where: { id },
+        include: {
+            analysis: true,
+        },
     });
 }
 
@@ -101,5 +99,32 @@ export async function markLogFailed(id: string, errorMessage: string) {
             errorMessage,
             processedAt: new Date(),
         },
+    });
+}
+
+type SaveLogAnalysisInput = {
+    logId: string;
+    severity: string;
+    category: string;
+    summary: string;
+    possibleCause: string;
+    suggestedFix: string;
+    confidenceScore: number;
+};
+
+export async function saveLogAnalysis(data: SaveLogAnalysisInput) {
+    return prisma.logAnalysis.upsert({
+        where: {
+            logId: data.logId,
+        },
+        update: {
+            severity: data.severity,
+            category: data.category,
+            summary: data.summary,
+            possibleCause: data.possibleCause,
+            suggestedFix: data.suggestedFix,
+            confidenceScore: data.confidenceScore,
+        },
+        create: data,
     });
 }

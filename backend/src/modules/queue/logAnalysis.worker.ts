@@ -42,6 +42,16 @@ async function processLogAnalysisJob(
 
   //Real AI analysis.
   const analysis = await analyzeLogMessage(log.message);
+  
+  await logService.saveLogAnalysis({
+    logId,
+    severity: analysis.severity,
+    category: analysis.category,
+    summary: analysis.summary,
+    possibleCause: analysis.possibleCause,
+    suggestedFix: analysis.suggestedFix,
+    confidenceScore: analysis.confidenceScore,
+  });
 
   console.log("[Worker] AI analysis result:", analysis);
 
