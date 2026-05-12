@@ -3,6 +3,7 @@ import prisma from "../../config/db.js";
 import redis from "../../config/redis.js";
 import { cacheKeys } from "../../utils/cacheKeys.js";
 import * as logService from "../logs/logs.service.js";
+import { analyzeLogMessage } from "../ai/ai.service.js";
 
 type LogAnalysisJobData = {
   logId: string;
@@ -31,9 +32,7 @@ async function processLogAnalysisJob(
     throw new Error("logId is required");
   }
 
-  const log = await prisma.log.findUnique({
-    where: { id: logId },
-  });
+  const log = await logService.getLogById(logId);
 
   if (!log) {
     throw new Error(`Log not found: ${logId}`);
@@ -41,8 +40,10 @@ async function processLogAnalysisJob(
 
   await logService.markLogProcessing(logId);
 
-  // Fake analysis for now. AI will come later.
-  await new Promise((resolve) => setTimeout(resolve, 2000));
+  //Real AI analysis.
+  const analysis = await analyzeLogMessage(log.message);
+
+  console.log("[Worker] AI analysis result:", analysis);
 
   await logService.markLogCompleted(logId);
 
