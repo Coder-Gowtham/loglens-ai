@@ -13,6 +13,8 @@ function App() {
   const [logs, setLogs] = useState<Log[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [search, setSearch] = useState("");
+  const [severityFilter, setSeverityFilter] = useState("all");
 
   type LogAnalysis = {
     id: string;
@@ -52,10 +54,22 @@ function App() {
     loadLogs();
   }, []);
 
+  const filteredLogs = logs.filter((log) => {
+    const analysis = log.analysis || log.logAnalysis;
+
+    const matchesSearch = log.message.toLowerCase().includes(search.toLowerCase());
+
+    const matchesSeverity =
+      severityFilter === "all" ||
+      analysis?.severity?.toLowerCase() === severityFilter;
+
+    return matchesSearch && matchesSeverity;
+  });
+
   return (
     <main>
       <h1>LogLens AI</h1>
-      <p>Day 20: Frontend connected to backend</p>
+
 
       {loading && <p>Loading logs...</p>}
 
@@ -65,11 +79,31 @@ function App() {
         <section>
           <h2>Logs</h2>
 
-          {logs.length === 0 ? (
-            <p>No logs found.</p>
+          <div className="filters">
+            <input
+              type="text"
+              placeholder="Search logs..."
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+            />
+
+            <select
+              value={severityFilter}
+              onChange={(e) => setSeverityFilter(e.target.value)}
+            >
+              <option value="all">All Severities</option>
+              <option value="high">High</option>
+              <option value="medium">Medium</option>
+              <option value="low">Low</option>
+            </select>
+          </div>
+
+          {filteredLogs.length === 0 ? (
+            <p>No matching logs found.</p>
           ) : (
             <ul>
-              {logs.map((log) => (
+              {filteredLogs.map((log) => (
+
                 <li key={log.id}>
                   <div>
                     <strong>{log.level}</strong> — {log.message}

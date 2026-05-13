@@ -44,3 +44,21 @@ h3 {
 p {
   margin: 6px 0;
 }
+
+.filters {
+  display: flex;
+  gap: 12px;
+  margin-bottom: 24px;
+}
+
+input,
+select {
+  padding: 12px;
+  border-radius: 8px;
+  border: 1px solid #cbd5e1;
+  font-size: 14px;
+}
+
+input {
+  width: 300px;
+}
