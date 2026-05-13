@@ -3,6 +3,13 @@ import redis from "../../config/redis.js";
 import { cacheKeys } from "../../utils/cacheKeys.js";
 import { addLogAnalysisJob } from "../queue/logAnalysis.queue.js";
 
+async function clearLogsCache() {
+    const keys = await redis.keys("logs:*");
+
+    if (keys.length > 0) {
+        await redis.del(...keys);
+    }
+}
 
 export async function createLog(data: any) {
     const log = await prisma.log.create({
@@ -14,30 +21,51 @@ export async function createLog(data: any) {
 
     await addLogAnalysisJob(log.id); //Log created, processing queued
 
-    await redis.del(cacheKeys.logsAll);
+    await clearLogsCache();
 
     return log;
 }
-export async function getLogs() {
-    const cachedLogs = await redis.get(cacheKeys.logsAll);
 
-    if (cachedLogs) {
-        console.log("Cache hit: logs");
-        return JSON.parse(cachedLogs);
-    }
+export async function getLogs(page = 1, limit = 5) {
+  const skip = (page - 1) * limit;
 
-    console.log("Cache miss: logs");
+  const cacheKey = `logs:page:${page}:limit:${limit}`;
 
-    const logs = await prisma.log.findMany({
-        orderBy: { createdAt: "desc" },
-        include: {
-            analysis: true,
-        },
-    });
+  const cachedLogs = await redis.get(cacheKey);
 
-    await redis.set(cacheKeys.logsAll, JSON.stringify(logs), "EX", 60); /*Store logs in Redis under key "logs:all" for 60 seconds*/
+  if (cachedLogs) {
+    console.log("Cache hit: paginated logs");
+    return JSON.parse(cachedLogs);
+  }
 
-    return logs;
+  console.log("Cache miss: paginated logs");
+
+  const [logs, total] = await Promise.all([
+    prisma.log.findMany({
+      skip,
+      take: limit,
+      orderBy: { createdAt: "desc" },
+      include: {
+        analysis: true,
+      },
+    }),
+
+    prisma.log.count(),
+  ]);
+
+  const result = {
+    data: logs,
+    pagination: {
+      page,
+      limit,
+      total,
+      totalPages: Math.ceil(total / limit),
+    },
+  };
+
+  await redis.set(cacheKey, JSON.stringify(result), "EX", 60);
+
+  return result;
 }
 
 export async function getLogById(id: string) {
@@ -55,7 +83,7 @@ export async function updateLog(id: string, data: any) {
         data,
     });
 
-    await redis.del(cacheKeys.logsAll);
+    await clearLogsCache();
 
     return log;
 }
@@ -65,7 +93,7 @@ export async function deleteLog(id: string) {
         where: { id },
     });
 
-    await redis.del(cacheKeys.logsAll);
+    await clearLogsCache();
 
     return log;
 }

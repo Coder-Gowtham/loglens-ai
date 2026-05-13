@@ -15,6 +15,9 @@ function App() {
   const [error, setError] = useState("");
   const [search, setSearch] = useState("");
   const [severityFilter, setSeverityFilter] = useState("all");
+  const [page, setPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+  const limit = 5;
 
   type LogAnalysis = {
     id: string;
@@ -38,11 +41,14 @@ function App() {
   useEffect(() => {
     async function loadLogs() {
       try {
-        const data = await getLogs();
+        setLoading(true);
 
-        console.log("Logs API response:", data);
+        const result = await getLogs(page, limit);
 
-        setLogs(data.logs || data.data || data);
+        console.log("Logs API response:", result);
+
+        setLogs(result.data);
+        setTotalPages(result.pagination.totalPages);
       } catch (err) {
         console.error(err);
         setError("Could not load logs");
@@ -52,7 +58,7 @@ function App() {
     }
 
     loadLogs();
-  }, []);
+  }, [page]);
 
   const filteredLogs = logs.filter((log) => {
     const analysis = log.analysis || log.logAnalysis;
@@ -136,6 +142,25 @@ function App() {
               ))}
             </ul>
           )}
+          <div className="pagination">
+            <button
+              disabled={page === 1}
+              onClick={() => setPage((currentPage) => currentPage - 1)}
+            >
+              Previous
+            </button>
+
+            <span>
+              Page {page} of {totalPages}
+            </span>
+
+            <button
+              disabled={page === totalPages}
+              onClick={() => setPage((currentPage) => currentPage + 1)}
+            >
+              Next
+            </button>
+          </div>
         </section>
       )}
     </main>

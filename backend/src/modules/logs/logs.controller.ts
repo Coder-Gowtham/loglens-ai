@@ -26,11 +26,12 @@ export async function create(req: Request, res: Response) {
 }
 
 export async function getAll(_req: Request, res: Response) {
-    const logs = await logService.getLogs();
+    const page = Number(_req.query.page) || 1;
+    const limit = Number(_req.query.limit) || 5;
 
-    return res.status(200).json({
-        data: logs,
-    });
+    const result = await logService.getLogs(page, limit);
+
+    res.json(result);
 }
 
 export async function getById(req: Request, res: Response) {

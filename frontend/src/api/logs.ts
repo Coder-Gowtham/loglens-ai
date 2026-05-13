@@ -1,9 +1,9 @@
 const API_URL = "http://localhost:5000";
 
-export async function getLogs() {
+export async function getLogs(page = 1, limit = 5) {
   const token = localStorage.getItem("token");
 
-  const response = await fetch(`${API_URL}/logs`, {
+  const response = await fetch(`${API_URL}/logs?page=${page}&limit=${limit}`, {
     headers: {
       Authorization: `Bearer ${token}`,
     },
