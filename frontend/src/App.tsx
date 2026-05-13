@@ -14,6 +14,25 @@ function App() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
+  type LogAnalysis = {
+    id: string;
+    summary?: string;
+    severity?: string;
+    possibleCause?: string;
+    suggestedFix?: string;
+    createdAt?: string;
+  };
+
+  type Log = {
+    id: string;
+    level: string;
+    message: string;
+    source?: string;
+    createdAt: string;
+    analysis?: LogAnalysis | null;
+    logAnalysis?: LogAnalysis | null;
+  };
+
   useEffect(() => {
     async function loadLogs() {
       try {
@@ -52,7 +71,33 @@ function App() {
             <ul>
               {logs.map((log) => (
                 <li key={log.id}>
-                  <strong>{log.level}</strong> — {log.message}
+                  <div>
+                    <strong>{log.level}</strong> — {log.message}
+                  </div>
+
+                  {(log.analysis || log.logAnalysis) ? (
+                    <div>
+                      <h3>AI Analysis</h3>
+                      <p>
+                        <strong>Summary:</strong>{" "}
+                        {(log.analysis || log.logAnalysis)?.summary || "Not available"}
+                      </p>
+                      <p>
+                        <strong>Severity:</strong>{" "}
+                        {(log.analysis || log.logAnalysis)?.severity || "Not available"}
+                      </p>
+                      <p>
+                        <strong>Possible Cause:</strong>{" "}
+                        {(log.analysis || log.logAnalysis)?.possibleCause || "Not available"}
+                      </p>
+                      <p>
+                        <strong>Suggested Fix:</strong>{" "}
+                        {(log.analysis || log.logAnalysis)?.suggestedFix || "Not available"}
+                      </p>
+                    </div>
+                  ) : (
+                    <p>No AI analysis yet.</p>
+                  )}
                 </li>
               ))}
             </ul>
