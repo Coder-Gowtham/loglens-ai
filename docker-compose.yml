@@ -22,8 +22,6 @@ services:
       context: ./backend
       dockerfile: Dockerfile
     container_name: loglens-backend
-    env_file:
-      - ./backend/.env
     ports:
       - "5000:5000"
       - "5555:5555"
@@ -34,7 +32,8 @@ services:
       DATABASE_URL: postgresql://postgres:password@postgres:5432/loglens
       REDIS_HOST: redis
       REDIS_PORT: 6379
-     
+      JWT_SECRET: ${JWT_SECRET}
+      OPENAI_API_KEY: ${OPENAI_API_KEY}
   worker:
     build: ./backend
 
@@ -50,6 +49,7 @@ services:
       REDIS_HOST: redis
       REDIS_PORT: 6379
 
+      OPENAI_API_KEY: ${OPENAI_API_KEY}
 
     volumes:
       - ./backend:/app
