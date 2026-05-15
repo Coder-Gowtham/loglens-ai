@@ -1,6 +1,7 @@
 import { Job, Worker } from "bullmq";
+import {Redis} from "ioredis";
 import prisma from "../../config/db.js";
-import {redis} from "../../config/redis.js";
+import { redis } from "../../config/redis.js";
 import { cacheKeys } from "../../utils/cacheKeys.js";
 import * as logService from "../logs/logs.service.js";
 import { analyzeLogMessage } from "../ai/ai.service.js";
@@ -15,10 +16,15 @@ type LogAnalysisResult = {
   processedAt: string;
 };
 
-const connection = {
-  host: process.env.REDIS_HOST || "127.0.0.1",
-  port: Number(process.env.REDIS_PORT) || 6379,
-};
+const connection = process.env.REDIS_URL
+  ? new Redis(process.env.REDIS_URL, {
+    maxRetriesPerRequest: null,
+  })
+  : new Redis({
+    host: process.env.REDIS_HOST || "127.0.0.1",
+    port: Number(process.env.REDIS_PORT) || 6379,
+    maxRetriesPerRequest: null,
+  });
 
 async function processLogAnalysisJob(
   job: Job<LogAnalysisJobData>
@@ -42,7 +48,7 @@ async function processLogAnalysisJob(
 
   //Real AI analysis.
   const analysis = await analyzeLogMessage(log.message);
-  
+
   await logService.saveLogAnalysis({
     logId,
     severity: analysis.severity,
