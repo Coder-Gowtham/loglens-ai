@@ -26,46 +26,74 @@ export async function createLog(data: any) {
     return log;
 }
 
-export async function getLogs(page = 1, limit = 5) {
-  const skip = (page - 1) * limit;
+export async function getLogs(
+    page = 1,
+    limit = 5,
+    search = "",
+    severity = "all"
+) {
+    const skip = (page - 1) * limit;
 
-  const cacheKey = `logs:page:${page}:limit:${limit}`;
+    const where: any = {};
 
-  const cachedLogs = await redis.get(cacheKey);
+    if (search) {
+        where.message = {
+            contains: search,
+            mode: "insensitive",
+        };
+    }
 
-  if (cachedLogs) {
-    console.log("Cache hit: paginated logs");
-    return JSON.parse(cachedLogs);
-  }
+    if (severity !== "all") {
+        where.analysis = {
+            is: {
+                severity: {
+                    equals: severity,
+                    mode: "insensitive",
+                },
+            },
+        };
+    }
 
-  console.log("Cache miss: paginated logs");
+    const cacheKey = `logs:page:${page}:limit:${limit}:search:${search}:severity:${severity}`;
 
-  const [logs, total] = await Promise.all([
-    prisma.log.findMany({
-      skip,
-      take: limit,
-      orderBy: { createdAt: "desc" },
-      include: {
-        analysis: true,
-      },
-    }),
+    const cachedLogs = await redis.get(cacheKey);
 
-    prisma.log.count(),
-  ]);
+    if (cachedLogs) {
+        console.log("Cache hit: filtered paginated logs");
+        return JSON.parse(cachedLogs);
+    }
 
-  const result = {
-    data: logs,
-    pagination: {
-      page,
-      limit,
-      total,
-      totalPages: Math.ceil(total / limit),
-    },
-  };
+    console.log("Cache miss: filtered paginated logs");
 
-  await redis.set(cacheKey, JSON.stringify(result), "EX", 60);
+    const [logs, total] = await Promise.all([
+        prisma.log.findMany({
+            where,
+            skip,
+            take: limit,
+            orderBy: { createdAt: "desc" },
+            include: {
+                analysis: true,
+            },
+        }),
 
-  return result;
+        prisma.log.count({
+            where,
+        }),
+    ]);
+
+    const result = {
+        data: logs,
+        pagination: {
+            page,
+            limit,
+            total,
+            totalPages: Math.ceil(total / limit),
+        },
+    };
+
+    await redis.set(cacheKey, JSON.stringify(result), "EX", 60);
+
+    return result;
 }
 
 export async function getLogById(id: string) {

@@ -8,7 +8,9 @@
     "postinstall": "prisma generate",
     "dev": "prisma generate && tsx watch src/server.ts",
     "build": "tsc",
-    "start": "node dist/server.js"
+    "start": "node dist/src/server.js",
+    "worker": "tsx src/modules/queue/logAnalysis.worker.ts",
+    "worker:prod": "node dist/src/modules/queue/logAnalysis.worker.js"
   },
   "keywords": [],
   "author": "",

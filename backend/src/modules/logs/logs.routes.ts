@@ -8,12 +8,14 @@ import {
   getById,
   update,
   remove,
+  reanalyze,
 } from "./logs.controller.js";
 
 const router = Router();
 
 router.post("/", authMiddleware, asyncHandler(create));
 router.get("/", authMiddleware, asyncHandler(getAll));
+router.post("/:id/reanalyze", authMiddleware, asyncHandler(reanalyze));
 router.get("/:id", authMiddleware, asyncHandler(getById));
 router.patch("/:id", authMiddleware, asyncHandler(update));
 router.delete("/:id", authMiddleware, asyncHandler(remove));

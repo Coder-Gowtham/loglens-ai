@@ -6,6 +6,8 @@ import {
     updateLogSchema,
 } from "./logs.validation.js";
 import { formatZodError } from "../../utils/formatZodError.js";
+import { addLogAnalysisJob } from "../queue/logAnalysis.queue.js";
+
 
 export async function create(req: Request, res: Response) {
     const validation = createLogSchema.safeParse(req.body);
@@ -25,11 +27,13 @@ export async function create(req: Request, res: Response) {
     });
 }
 
-export async function getAll(_req: Request, res: Response) {
-    const page = Number(_req.query.page) || 1;
-    const limit = Number(_req.query.limit) || 5;
+export async function getAll(req: Request, res: Response) {
+    const page = Number(req.query.page) || 1;
+    const limit = Number(req.query.limit) || 5;
+    const search = String(req.query.search || "");
+    const severity = String(req.query.severity || "all");
 
-    const result = await logService.getLogs(page, limit);
+    const result = await logService.getLogs(page, limit, search, severity);
 
     res.json(result);
 }
@@ -120,5 +124,24 @@ export async function remove(req: Request, res: Response) {
 
     return res.status(200).json({
         message: "Log deleted successfully",
+    });
+}
+
+export async function reanalyze(req: Request, res: Response) {
+    const validation = logIdParamSchema.safeParse(req.params);
+
+    if (!validation.success) {
+        return res.status(400).json({
+            message: "Validation failed",
+            errors: formatZodError(validation.error),
+        });
+    }
+
+    const { id } = validation.data;
+
+    await addLogAnalysisJob(id);
+
+    res.json({
+        message: "Log re-analysis queued",
     });
 }

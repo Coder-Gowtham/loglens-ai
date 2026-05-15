@@ -1,0 +1,72 @@
+services:
+  postgres:
+    image: postgres:16
+    container_name: loglens-postgres
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: password
+      POSTGRES_DB: loglens
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+  redis:
+    image: redis:7
+    container_name: loglens-redis
+    ports:
+      - "6379:6379"
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: loglens-backend
+    ports:
+      - "5000:5000"
+      - "5555:5555"
+    depends_on:
+      - postgres
+      - redis
+    environment:
+      DATABASE_URL: postgresql://postgres:password@postgres:5432/loglens
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      JWT_SECRET: ${JWT_SECRET}
+      OPENAI_API_KEY: ${OPENAI_API_KEY}
+  worker:
+    build: ./backend
+
+    container_name: loglens-worker
+
+    depends_on:
+      - postgres
+      - redis
+
+    environment:
+      DATABASE_URL: postgresql://postgres:password@postgres:5432/loglens
+
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+
+      OPENAI_API_KEY: ${OPENAI_API_KEY}
+
+    volumes:
+      - ./backend:/app
+      - /app/node_modules
+
+    command: npm run worker
+
+  frontend:
+    build: ./frontend
+    container_name: loglens-frontend
+    ports:
+      - "5173:5173"
+    depends_on:
+      - backend
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
+
+volumes:
+  postgres_data:
