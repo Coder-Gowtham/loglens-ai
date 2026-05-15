@@ -7,6 +7,7 @@ import authRoutes from "./modules/auth/auth.routes.js";
 import logsRoutes from "./modules/logs/logs.routes.js";
 import { errorMiddleware } from "./middlewares/error.middleware.js";
 import { globalRateLimit } from "./middlewares/rateLimit.middleware.js";
+import projectRoutes from "./modules/projects/projects.routes.js";
 
 
 const app = express();
@@ -30,6 +31,7 @@ app.use("/health", healthRoutes);
 
 app.use("/auth", authRoutes);
 app.use("/logs", logsRoutes);
+app.use("/projects", projectRoutes);
 
 app.use((_req, res) => {
   res.status(404).json({
