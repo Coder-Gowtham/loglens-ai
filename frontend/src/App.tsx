@@ -43,7 +43,6 @@ function App() {
 
         const result = await getLogs(page, limit, search, severityFilter);
 
-        console.log("Logs API response:", result);
 
         setLogs(result.data);
         setTotalPages(result.pagination.totalPages || 1);
