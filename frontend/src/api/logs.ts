@@ -1,6 +1,6 @@
 // const API_URL = import.meta.env.VITE_API_URL || "http://localhost:5000";
 const API_URL = "https://loglens-ai-backend-production.up.railway.app";
-console.log(import.meta.env.VITE_API_UR);
+console.log(import.meta.env.VITE_API_URL);
 
 
 console.log("PRODUCTION API URL:", API_URL);
