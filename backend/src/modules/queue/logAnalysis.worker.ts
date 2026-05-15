@@ -1,6 +1,6 @@
 import { Job, Worker } from "bullmq";
 import prisma from "../../config/db.js";
-import redis from "../../config/redis.js";
+import {redis} from "../../config/redis.js";
 import { cacheKeys } from "../../utils/cacheKeys.js";
 import * as logService from "../logs/logs.service.js";
 import { analyzeLogMessage } from "../ai/ai.service.js";

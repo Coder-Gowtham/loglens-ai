@@ -1,4 +1,4 @@
-import redis from "./config/redis.js";
+import {redis} from "./config/redis.js";
 
 async function testRedis() {
   await redis.set("test:key", "Hello Redis");

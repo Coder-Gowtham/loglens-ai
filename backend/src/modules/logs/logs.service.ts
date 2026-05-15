@@ -1,5 +1,5 @@
 import prisma from "../../config/db.js";
-import redis from "../../config/redis.js";
+import {redis} from "../../config/redis.js";
 import { cacheKeys } from "../../utils/cacheKeys.js";
 import { addLogAnalysisJob } from "../queue/logAnalysis.queue.js";
 
