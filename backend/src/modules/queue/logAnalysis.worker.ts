@@ -14,14 +14,18 @@ type LogAnalysisResult = {
   processedAt: string;
 };
 
-const connection = createRedisConnection();
+async function safeClearLogsCache() {
+  try {
+    await clearLogsCache();
+  } catch (error) {
+    console.error("[Worker] Failed to clear logs cache:", error);
+  }
+}
 
-async function processLogAnalysisJob(
-  job: Job<LogAnalysisJobData>
+export async function processLogAnalysisById(
+  logId: string
 ): Promise<LogAnalysisResult> {
-  const { logId } = job.data;
-
-  console.log(`[Worker] Processing log analysis job ${job.id}`);
+  console.log(`[Worker] Processing log analysis`);
   console.log(`[Worker] Log ID: ${logId}`);
 
   if (!logId) {
@@ -34,62 +38,104 @@ async function processLogAnalysisJob(
     throw new Error(`Log not found: ${logId}`);
   }
 
-  await logService.markLogProcessing(logId);
+  try {
+    await logService.markLogProcessing(logId);
 
-  const analysis = await analyzeLogMessage(log.message);
+    const analysis = await analyzeLogMessage(log.message);
 
-  await logService.saveLogAnalysis({
-    logId,
-    severity: analysis.severity,
-    category: analysis.category,
-    summary: analysis.summary,
-    possibleCause: analysis.possibleCause,
-    suggestedFix: analysis.suggestedFix,
-    confidenceScore: analysis.confidenceScore,
-  });
+    await logService.saveLogAnalysis({
+      logId,
+      severity: analysis.severity,
+      category: analysis.category,
+      summary: analysis.summary,
+      possibleCause: analysis.possibleCause,
+      suggestedFix: analysis.suggestedFix,
+      confidenceScore: analysis.confidenceScore,
+    });
 
-  await logService.markLogCompleted(logId);
-  await clearLogsCache();
+    await logService.markLogCompleted(logId);
+    await safeClearLogsCache();
 
-  console.log(`[Worker] Completed log analysis for ${logId}`);
+    console.log(`[Worker] Completed log analysis for ${logId}`);
 
-  return {
-    success: true,
-    logId,
-    processedAt: new Date().toISOString(),
-  };
+    return {
+      success: true,
+      logId,
+      processedAt: new Date().toISOString(),
+    };
+  } catch (error) {
+    const message =
+      error instanceof Error
+        ? error.message
+        : "Unknown AI analysis error";
+
+    await logService.markLogFailed(logId, message);
+    await safeClearLogsCache();
+
+    console.error(`[Worker] Failed log analysis for ${logId}:`, message);
+
+    throw error;
+  }
 }
 
-export const logAnalysisWorker = new Worker<LogAnalysisJobData>(
-  "log-analysis",
-  processLogAnalysisJob,
-  {
-    connection,
-    concurrency: 2,
-  }
-);
+async function processLogAnalysisJob(
+  job: Job<LogAnalysisJobData>
+): Promise<LogAnalysisResult> {
+  return processLogAnalysisById(job.data.logId);
+}
 
-logAnalysisWorker.on("ready", () => {
-  console.log("[Worker] Log analysis worker is ready");
-});
+const shouldStartWorker = process.env.USE_QUEUE === "true";
 
-logAnalysisWorker.on("completed", (job, result) => {
-  console.log(`[Worker] Job completed: ${job.id}`);
-  console.log("[Worker] Result:", result);
-});
+export let logAnalysisWorker: Worker<LogAnalysisJobData> | null = null;
 
-logAnalysisWorker.on("failed", async (job, err) => {
-  console.error(`[Worker] Job failed: ${job?.id}`);
-  console.error("[Worker] Error:", err.message);
+if (shouldStartWorker) {
+  const connection = createRedisConnection();
 
-  const logId = job?.data?.logId;
+  logAnalysisWorker = new Worker<LogAnalysisJobData>(
+    "log-analysis",
+    processLogAnalysisJob,
+    {
+      connection,
+      concurrency: 1,
+      lockDuration: 30000,
+      stalledInterval: 60000,
+      maxStalledCount: 1,
+    }
+  );
 
-  if (logId) {
-    await logService.markLogFailed(logId, err.message);
-    await clearLogsCache();
-  }
-});
+  logAnalysisWorker.on("ready", () => {
+    console.log("[Worker] Log analysis worker is ready");
+  });
 
-logAnalysisWorker.on("error", (err) => {
-  console.error("[Worker] Worker error:", err);
-});
+  logAnalysisWorker.on("completed", (job, result) => {
+    console.log(`[Worker] Job completed: ${job.id}`);
+    console.log("[Worker] Result:", result);
+  });
+
+  logAnalysisWorker.on("failed", async (job, err) => {
+    console.error(`[Worker] Job failed: ${job?.id}`);
+    console.error("[Worker] Error:", err.message);
+
+    const logId = job?.data?.logId;
+
+    if (logId) {
+      await logService.markLogFailed(logId, err.message);
+      await safeClearLogsCache();
+    }
+  });
+
+  logAnalysisWorker.on("error", (err) => {
+    console.error("[Worker] Worker error:", err.message);
+
+    if (
+      err.message.includes("max requests limit exceeded") ||
+      err.message.includes("ERR max requests limit exceeded")
+    ) {
+      console.error(
+        "[Worker] Redis request limit exceeded. Disable queue with USE_QUEUE=false or upgrade Redis."
+      );
+    }
+  });
+} else {
+  console.log("[Worker] Queue disabled. Worker not started.");
+}

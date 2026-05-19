@@ -12,6 +12,34 @@ function userLogsWhere(userId: string, extra: Record<string, unknown> = {}) {
   };
 }
 
+async function safeClearLogsCache() {
+  try {
+    await clearLogsCache();
+  } catch (error) {
+    console.error("Failed to clear logs cache:", error);
+  }
+}
+
+async function runLogAnalysis(logId: string) {
+  if (process.env.USE_QUEUE === "true") {
+    try {
+      await addLogAnalysisJob(logId);
+    } catch (error) {
+      console.error("Failed to enqueue log analysis job:", error);
+    }
+
+    return;
+  }
+
+  import("../queue/logAnalysis.worker.js")
+    .then((module) => {
+      return module.processLogAnalysisById(logId);
+    })
+    .catch((error) => {
+      console.error("Direct AI analysis failed:", error);
+    });
+}
+
 export async function createLog(
   userId: string,
   data: {
@@ -39,17 +67,8 @@ export async function createLog(
     },
   });
 
-  try {
-    await addLogAnalysisJob(log.id);
-  } catch (error) {
-    console.error("Failed to enqueue log analysis job:", error);
-  }
-
-  try {
-    await clearLogsCache();
-  } catch (error) {
-    console.error("Failed to clear logs cache:", error);
-  }
+  await runLogAnalysis(log.id);
+  await safeClearLogsCache();
 
   return log;
 }
@@ -90,7 +109,9 @@ export async function getLogs(
     };
   }
 
-  const cacheKey = `logs:user:${userId}:page:${safePage}:limit:${safeLimit}:search:${search}:severity:${severity}:project:${projectId || "all"}`;
+  const cacheKey = `logs:user:${userId}:page:${safePage}:limit:${safeLimit}:search:${search}:severity:${severity}:project:${
+    projectId || "all"
+  }`;
 
   try {
     const cachedLogs = await redis.get(cacheKey);
@@ -171,11 +192,7 @@ export async function updateLog(
     include: { analysis: true },
   });
 
-  try {
-    await clearLogsCache();
-  } catch (error) {
-    console.error("Failed to clear logs cache:", error);
-  }
+  await safeClearLogsCache();
 
   return log;
 }
@@ -191,11 +208,7 @@ export async function deleteLog(id: string, userId: string) {
     where: { id },
   });
 
-  try {
-    await clearLogsCache();
-  } catch (error) {
-    console.error("Failed to clear logs cache:", error);
-  }
+  await safeClearLogsCache();
 
   return log;
 }
@@ -215,17 +228,8 @@ export async function reanalyzeLog(id: string, userId: string) {
     },
   });
 
-  try {
-    await addLogAnalysisJob(id);
-  } catch (error) {
-    console.error("Failed to enqueue re-analysis job:", error);
-  }
-
-  try {
-    await clearLogsCache();
-  } catch (error) {
-    console.error("Failed to clear logs cache:", error);
-  }
+  await runLogAnalysis(id);
+  await safeClearLogsCache();
 }
 
 export async function markLogProcessing(id: string) {
