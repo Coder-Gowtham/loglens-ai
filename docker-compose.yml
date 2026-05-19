@@ -10,63 +10,76 @@ services:
       - "5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d loglens"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
 
   redis:
     image: redis:7
     container_name: loglens-redis
     ports:
       - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
 
   backend:
     build:
       context: ./backend
-      dockerfile: Dockerfile
+      dockerfile: Dockerfile.api
     container_name: loglens-backend
     ports:
       - "5000:5000"
       - "5555:5555"
     depends_on:
-      - postgres
-      - redis
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    env_file:
+      - ./backend/.env
     environment:
-      DATABASE_URL: postgresql://postgres:password@postgres:5432/loglens
+      PORT: 5000
+      NODE_ENV: production
+      DATABASE_URL: ${DATABASE_URL:-postgresql://postgres:password@postgres:5432/loglens}
       REDIS_HOST: redis
       REDIS_PORT: 6379
-      JWT_SECRET: ${JWT_SECRET}
-      OPENAI_API_KEY: ${OPENAI_API_KEY}
+
   worker:
-    build: ./backend
-
+    build:
+      context: ./backend
+      dockerfile: Dockerfile.worker
     container_name: loglens-worker
-
     depends_on:
-      - postgres
-      - redis
-
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      backend:
+        condition: service_started
+    env_file:
+      - ./backend/.env
     environment:
-      DATABASE_URL: postgresql://postgres:password@postgres:5432/loglens
-
+      NODE_ENV: production
+      DATABASE_URL: ${DATABASE_URL:-postgresql://postgres:password@postgres:5432/loglens}
       REDIS_HOST: redis
       REDIS_PORT: 6379
-
-      OPENAI_API_KEY: ${OPENAI_API_KEY}
-
-    volumes:
-      - ./backend:/app
-      - /app/node_modules
-
-    command: npm run worker
 
   frontend:
-    build: ./frontend
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+      args:
+        VITE_API_URL: http://localhost:5000
     container_name: loglens-frontend
     ports:
-      - "5173:5173"
+      - "8080:80"
     depends_on:
       - backend
-    volumes:
-      - ./frontend:/app
-      - /app/node_modules
 
 volumes:
   postgres_data:

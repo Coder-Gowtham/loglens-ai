@@ -1,10 +1,8 @@
 import { Job, Worker } from "bullmq";
-import {Redis} from "ioredis";
-import prisma from "../../config/db.js";
-import { redis } from "../../config/redis.js";
-import { cacheKeys } from "../../utils/cacheKeys.js";
 import * as logService from "../logs/logs.service.js";
 import { analyzeLogMessage } from "../ai/ai.service.js";
+import { createRedisConnection } from "../../utils/redisConnection.js";
+import { clearLogsCache } from "../../utils/clearLogsCache.js";
 
 type LogAnalysisJobData = {
   logId: string;
@@ -16,15 +14,7 @@ type LogAnalysisResult = {
   processedAt: string;
 };
 
-const connection = process.env.REDIS_URL
-  ? new Redis(process.env.REDIS_URL, {
-    maxRetriesPerRequest: null,
-  })
-  : new Redis({
-    host: process.env.REDIS_HOST || "127.0.0.1",
-    port: Number(process.env.REDIS_PORT) || 6379,
-    maxRetriesPerRequest: null,
-  });
+const connection = createRedisConnection();
 
 async function processLogAnalysisJob(
   job: Job<LogAnalysisJobData>
@@ -46,7 +36,6 @@ async function processLogAnalysisJob(
 
   await logService.markLogProcessing(logId);
 
-  //Real AI analysis.
   const analysis = await analyzeLogMessage(log.message);
 
   await logService.saveLogAnalysis({
@@ -59,11 +48,8 @@ async function processLogAnalysisJob(
     confidenceScore: analysis.confidenceScore,
   });
 
-  console.log("[Worker] AI analysis result:", analysis);
-
   await logService.markLogCompleted(logId);
-
-  await redis.del(cacheKeys.logsAll);
+  await clearLogsCache();
 
   console.log(`[Worker] Completed log analysis for ${logId}`);
 
@@ -100,7 +86,7 @@ logAnalysisWorker.on("failed", async (job, err) => {
 
   if (logId) {
     await logService.markLogFailed(logId, err.message);
-    await redis.del(cacheKeys.logsAll);
+    await clearLogsCache();
   }
 });
 

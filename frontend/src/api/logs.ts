@@ -1,15 +1,48 @@
-// const API_URL = import.meta.env.VITE_API_URL || "http://localhost:5000";
-const API_URL = "https://loglens-ai-backend-production.up.railway.app";
+import { apiRequest } from "../services/api";
 
+export type LogAnalysis = {
+  id: string;
+  summary?: string;
+  severity?: string;
+  possibleCause?: string;
+  suggestedFix?: string;
+  category?: string;
+  confidenceScore?: number;
+  createdAt?: string;
+};
+
+export type Log = {
+  id: string;
+  level: string;
+  message: string;
+  source?: string;
+  status: string;
+  errorMessage?: string | null;
+  createdAt: string;
+  analysis?: LogAnalysis | null;
+};
+
+type LogsResponse = {
+  data: Log[];
+  pagination: {
+    page: number;
+    limit: number;
+    total: number;
+    totalPages: number;
+  };
+};
+
+type LogResponse = {
+  data: Log;
+};
 
 export async function getLogs(
-  page = 1,
-  limit = 5,
-  search = "",
-  severity = "all"
+  page: number,
+  limit: number,
+  search: string,
+  severity: string,
+  projectId?: string
 ) {
-  const token = localStorage.getItem("token");
-
   const params = new URLSearchParams({
     page: String(page),
     limit: String(limit),
@@ -17,35 +50,27 @@ export async function getLogs(
     severity,
   });
 
-  const response = await fetch(`${API_URL}/logs?${params}`, {
-    headers: {
-      Authorization: `Bearer ${token}`,
-    },
-  });
-
-  if (!response.ok) {
-    throw new Error("Failed to fetch logs");
+  if (projectId) {
+    params.set("projectId", projectId);
   }
 
-  return response.json();
+  return apiRequest<LogsResponse>(`/logs?${params.toString()}`);
+}
+
+export async function createLog(payload: {
+  projectId: string;
+  level?: string;
+  message: string;
+  source?: string;
+}) {
+  return apiRequest<LogResponse>("/logs", {
+    method: "POST",
+    body: JSON.stringify(payload),
+  });
 }
 
 export async function reanalyzeLog(logId: string) {
-  const token = localStorage.getItem("token");
-
-  const response = await fetch(
-    `${API_URL}/logs/${logId}/reanalyze`,
-    {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${token}`,
-      },
-    }
-  );
-
-  if (!response.ok) {
-    throw new Error("Failed to re-analyze log");
-  }
-
-  return response.json();
+  return apiRequest<{ message: string }>(`/logs/${logId}/reanalyze`, {
+    method: "POST",
+  });
 }

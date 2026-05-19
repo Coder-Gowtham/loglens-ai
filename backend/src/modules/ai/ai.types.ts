@@ -1,4 +1,4 @@
-export type LogSeverity = "low" | "medium" | "high" | "critical";
+export type LogSeverity = "low" | "medium" | "high";
 
 export type LogAnalysisResult = {
   severity: LogSeverity;
