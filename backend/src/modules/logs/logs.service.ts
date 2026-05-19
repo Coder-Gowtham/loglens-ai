@@ -39,8 +39,17 @@ export async function createLog(
     },
   });
 
-  await addLogAnalysisJob(log.id);
-  await clearLogsCache();
+  try {
+    await addLogAnalysisJob(log.id);
+  } catch (error) {
+    console.error("Failed to enqueue log analysis job:", error);
+  }
+
+  try {
+    await clearLogsCache();
+  } catch (error) {
+    console.error("Failed to clear logs cache:", error);
+  }
 
   return log;
 }
@@ -53,7 +62,9 @@ export async function getLogs(
   severity = "all",
   projectId?: string
 ) {
-  const skip = (page - 1) * limit;
+  const safePage = Number(page) || 1;
+  const safeLimit = Number(limit) || 5;
+  const skip = (safePage - 1) * safeLimit;
 
   const where: Record<string, unknown> = userLogsWhere(userId);
 
@@ -61,14 +72,14 @@ export async function getLogs(
     where.projectId = projectId;
   }
 
-  if (search) {
+  if (search.trim()) {
     where.message = {
-      contains: search,
+      contains: search.trim(),
       mode: "insensitive",
     };
   }
 
-  if (severity !== "all") {
+  if (severity && severity !== "all") {
     where.analysis = {
       is: {
         severity: {
@@ -79,19 +90,23 @@ export async function getLogs(
     };
   }
 
-  const cacheKey = `logs:user:${userId}:page:${page}:limit:${limit}:search:${search}:severity:${severity}:project:${projectId || "all"}`;
+  const cacheKey = `logs:user:${userId}:page:${safePage}:limit:${safeLimit}:search:${search}:severity:${severity}:project:${projectId || "all"}`;
 
-  const cachedLogs = await redis.get(cacheKey);
+  try {
+    const cachedLogs = await redis.get(cacheKey);
 
-  if (cachedLogs) {
-    return JSON.parse(cachedLogs);
+    if (cachedLogs) {
+      return JSON.parse(cachedLogs);
+    }
+  } catch (error) {
+    console.error("Redis cache read failed:", error);
   }
 
   const [logs, total] = await Promise.all([
     prisma.log.findMany({
       where,
       skip,
-      take: limit,
+      take: safeLimit,
       orderBy: { createdAt: "desc" },
       include: { analysis: true },
     }),
@@ -101,14 +116,18 @@ export async function getLogs(
   const result = {
     data: logs,
     pagination: {
-      page,
-      limit,
+      page: safePage,
+      limit: safeLimit,
       total,
-      totalPages: Math.ceil(total / limit) || 1,
+      totalPages: Math.ceil(total / safeLimit) || 1,
     },
   };
 
-  await redis.set(cacheKey, JSON.stringify(result), "EX", 60);
+  try {
+    await redis.set(cacheKey, JSON.stringify(result), "EX", 60);
+  } catch (error) {
+    console.error("Redis cache write failed:", error);
+  }
 
   return result;
 }
@@ -152,7 +171,11 @@ export async function updateLog(
     include: { analysis: true },
   });
 
-  await clearLogsCache();
+  try {
+    await clearLogsCache();
+  } catch (error) {
+    console.error("Failed to clear logs cache:", error);
+  }
 
   return log;
 }
@@ -168,7 +191,11 @@ export async function deleteLog(id: string, userId: string) {
     where: { id },
   });
 
-  await clearLogsCache();
+  try {
+    await clearLogsCache();
+  } catch (error) {
+    console.error("Failed to clear logs cache:", error);
+  }
 
   return log;
 }
@@ -188,8 +215,17 @@ export async function reanalyzeLog(id: string, userId: string) {
     },
   });
 
-  await addLogAnalysisJob(id);
-  await clearLogsCache();
+  try {
+    await addLogAnalysisJob(id);
+  } catch (error) {
+    console.error("Failed to enqueue re-analysis job:", error);
+  }
+
+  try {
+    await clearLogsCache();
+  } catch (error) {
+    console.error("Failed to clear logs cache:", error);
+  }
 }
 
 export async function markLogProcessing(id: string) {
