@@ -4,13 +4,16 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1",
+   "test": "echo \"Error: no test specified\" && exit 1",
     "postinstall": "prisma generate",
     "dev": "prisma generate && tsx watch src/server.ts",
     "build": "tsc",
-    "start": "node dist/src/server.js",
+
+    "start": "npx prisma migrate deploy && node dist/src/server.js",
+
     "worker": "tsx src/modules/queue/logAnalysis.worker.ts",
-    "worker:prod": "node dist/src/modules/queue/logAnalysis.worker.js"
+
+    "worker:prod": "npx prisma migrate deploy && node dist/src/modules/queue/logAnalysis.worker.js"
   },
   "keywords": [],
   "author": "",

@@ -88,3 +88,9 @@ Typical production layout:
 
 
 docker exec -it loglens-backend npx prisma studio --port 5555 --browser none
+
+# How to connect to prisma through Railway CLI in production?
+1. railway login
+2. railway link
+3. railway shell
+4. npx prisma migrate deploy
