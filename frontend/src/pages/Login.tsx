@@ -64,6 +64,9 @@ export function Login() {
         <button type="submit" disabled={submitting}>
           {submitting ? "Signing in..." : "Sign in"}
         </button>
+        <p className="auth-footer">
+          No account? <Link to="/register">Create one</Link>
+        </p>
 
         <div className="login-hint-card">
           <p className="login-hint-title">How to use the app</p>
@@ -76,9 +79,7 @@ export function Login() {
           </ul>
         </div>
 
-        <p className="auth-footer">
-          No account? <Link to="/register">Create one</Link>
-        </p>
+
       </form>
     </main>
   );
